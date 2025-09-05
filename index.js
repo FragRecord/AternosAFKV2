@@ -5,11 +5,11 @@ const express = require('express')
 // Load config
 const config = JSON.parse(fs.readFileSync('config.json', 'utf8'))
 
-// Express uptime server (ping with UptimeRobot)
+// Simple uptime server (ping with UptimeRobot/Render health checks)
 const app = express()
 const PORT = process.env.PORT || 3000
 app.get('/', (req, res) => res.send('Bot is running!'))
-app.listen(PORT, '0.0.0.0', () => console.log(`[UPTIME] Server listening on ${PORT}`))
+app.listen(PORT, '0.0.0.0', () => console.log(`[UPTIME] Listening on ${PORT}`))
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -17,7 +17,7 @@ function createBot() {
     port: config.port,
     username: config.username,
     auth: config.auth,
-    viewDistance: 2, // minimal chunks loaded to save RAM
+    viewDistance: 2 // minimal chunk loading = lower RAM use
   })
 
   bot.on('login', () => console.log(`[BOT] Logged in as ${bot.username}`))
@@ -35,43 +35,23 @@ function createBot() {
   bot.on('error', err => console.error('[BOT] Error:', err.message))
 }
 
-// Anti-AFK function (stationary, safe, low RAM)
+// Minimal & Safe Anti-AFK
 function startAntiAFK(bot) {
-  if (!bot.entity) return
-
-  // single merged interval every 30–45s
   setInterval(() => {
     if (!bot.entity) return
 
-    // Slight look around
+    // Slight head movement (super light on server)
     bot.look(
-      bot.entity.yaw + (Math.random() - 0.5) * 0.5,
-      bot.entity.pitch + (Math.random() - 0.5) * 0.2,
+      bot.entity.yaw + (Math.random() - 0.5) * 0.3,
+      bot.entity.pitch,
       true
     )
 
-    // Tiny jump (no horizontal movement)
+    // Small jump every ~30–45 seconds
     if (Math.random() < 0.3) {
       bot.setControlState('jump', true)
-      setTimeout(() => bot.setControlState('jump', false), 500)
+      setTimeout(() => bot.setControlState('jump', false), 250)
     }
-
-    // Harmless chat
-    if (Math.random() < 0.2 && bot.chat) {
-      const messages = ['.', 'ping', 'hi', '!']
-      bot.chat(messages[Math.floor(Math.random() * messages.length)])
-    }
-
-    // Unload far chunks to free RAM
-    bot.world.chunkMap.forEach((chunk, key) => {
-      const distance = Math.sqrt(
-        Math.pow(chunk.x * 16 - bot.entity.position.x, 2) +
-        Math.pow(chunk.z * 16 - bot.entity.position.z, 2)
-      )
-      if (distance > 32 * 16) { // unload chunks beyond 32-block radius
-        bot.world.unloadChunk(chunk.x, chunk.z)
-      }
-    })
   }, 30000 + Math.random() * 15000)
 }
 
